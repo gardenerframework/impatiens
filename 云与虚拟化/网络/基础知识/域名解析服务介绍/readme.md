@@ -59,7 +59,7 @@ dns服务器还有很多其它的数据类型，不过以上三种比较常用
 虚拟机是通过虚拟化软件直接生成的
 
 ```shell
-neutron subnet-create --name newnet --dns-nameserver 8.8.8.8 ...
+neutron subnet-create --name newnet --dns-nameserver 100.125.128.250 ...
 ```
 
 ```text
