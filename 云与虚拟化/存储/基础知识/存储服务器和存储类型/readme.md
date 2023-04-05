@@ -111,3 +111,33 @@ foldder1 --> 主机1
 
 # 远程存储协议
 
+## 块存储协议
+
+### SCSI & iSCSI
+
+之前介绍过SCSI口的硬盘，其实SCSI一种将设备连接到计算机上的协议，并不只是硬盘专用的，这个东西已经很老了，下图是scsi的接线电缆，从而可见这东西和网络传输好像没什么关系。
+
+![scsi-电缆.png](scsi-电缆.png)
+
+和网络传输有关的是iSCSI(SCSI over IP)，就是通过tcp/ip协议承载SCSI协议，使得主机以为在用SCSI和自己的一个本地硬件打交道。
+
+![iscsi包格式.png](iscsi包格式.png)
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(主机, 主机) {
+    Container(iSCSI_init, iSCSI Initiator)
+}
+
+System(磁盘存储, 磁盘存储, iSCSI Target) 
+
+iSCSI_init <-r-> 磁盘存储: 网络传输
+
+@enduml
+```
+
+通常为了获得一个大的传输带宽，连接iSCSI target的网络需要10gbps，否则你硬盘柜子上的ssd在落泪
+
+### FC通道
