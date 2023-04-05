@@ -99,7 +99,7 @@ foldder1 --> 主机1
 System(主机1, http文件服务器)
 System(主机2, 上传接口)
 Boundary(oss, 对象存储服务器) {
-    Container(foldder1, /共享文档, folder)
+    Container(foldder1, 头像, bucket)
     
 }
 
