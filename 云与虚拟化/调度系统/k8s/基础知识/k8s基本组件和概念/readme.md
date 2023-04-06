@@ -73,3 +73,58 @@ k8s的所有管理可以通过调api
 server的接口完成([https://kubernetes.io/docs/concepts/overview/kubernetes-api/](https://kubernetes.io/docs/concepts/overview/kubernetes-api/))
 ，也就是你知道玩的明白，你可以用curl搞定一切。但是k8s知道你懒，所以提供了kubectl命令行工具。
 
+# pod
+
+pod是k8s种非常重要的一个对象，是k8s工作负载的最小调度单元
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(pod, pod) {
+    Container(container1, 容器, 文件下载器)
+    Container(container2, 容器, 比如是下载后的处理器)
+    
+    System(磁盘, 磁盘和目录)
+    System(网络地址, 网络地址和端口)
+    
+    container1 -d-> 网络地址
+    container2 -d-> 网络地址
+    
+    container1 -d-> 磁盘
+    container2 -d-> 磁盘
+}
+@enduml
+```
+
+可以将pod类比一个小的虚拟机，它能容纳若干个应用容器，可以类比为虚拟机内的进程。这些应用容器共享pod内部的系统卷，网络协议栈。
+在同一个pod中的容器彼此可以用localhost进行通信，这也就意味着容器彼此不能监听同样端口。同时两个容器也能读写同一个位置的文件。
+不过说实话，我从来都是一个应用容器一个pod，没挑战过一堆容器放一个pod里。
+实际生产中很少直接调api接口创建pod，而是创建它的管理型资源，比如Deployment，Job什么的。这些资源或者会保证pod的副本数，或者确保pod包含的容器运行成功。
+pod有2中容器，一种叫init容器，是用来初始化的，init容器跑完了才是真的应用容器。
+
+官网给了个例子很形象
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app.kubernetes.io/name: MyApp
+spec:
+  containers:
+    - name: myapp-container
+      image: busybox:1.28
+      command: [ 'sh', '-c', 'echo The app is running! && sleep 3600' ]
+  initContainers:
+    - name: init-myservice
+      image: busybox:1.28
+      command: [ 'sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done" ]
+    - name: init-mydb
+      image: busybox:1.28
+      command: [ 'sh', '-c', "until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done" ]
+```
+
+初始化容器一直在等数据库和一个依赖服务可用，可用了才把应用容器跑起来
+
