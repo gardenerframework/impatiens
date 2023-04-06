@@ -168,9 +168,48 @@ Boundary(AZ_2, az-2, 某机房) {
 * 其次内部云服务用于浮动ip挂载的段可以按需分配，建议从100.72开始按照C段分配
 * 第三100.64.0.0/13的路由(不是每个vpc的路由)需要在每个fip网络内创建接口(连入这个子网)这样才能进行两个网络的路由转发
 
-
-
 云公共网络**必须**是一个基于隧道封装的overlay网络，否则考虑一下跨AZ的时候，公共网络的二层vlan tag填什么？
+
+# 云公共网络与underlay网络的dnat转换
+
+如果云公共网络背后的服务是虚拟机实现的，可以通过给虚拟机挂载云公共网络浮动ip的方法实现。但如果云公共网络背后的服务是物理机实现，则需要在整个交换网络中有一台能支持vxlan的3层交换机进行dnat转发。
+具体如图所示，假设块存储流量网络中的存储设备提供了文件存储的能力，这个能力想要对所有VPC开放，支持租户在文件存储内创建自己的文件夹。
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+System(vpc路由, vpc路由)
+Boundary(vpc, vpc, vni-200) {
+    Container(vmport, 172.16.0.7, 虚拟机)
+    Container(router_p, 172.16.0.1, 路由接口)
+    vmport <-r-> router_p
+}
+Boundary(云公共网络, 云公共网络, 100.64.0.0/10) {
+    Boundary(vpc_r, vpc路由器网络, vni-300) {
+        Container(router_p_p, 100.64.0.100, 路由接口)
+        Container(router_p_r, 100.64.0.1, 网关接口) #red
+        router_p <-r-> vpc路由
+        vpc路由 <-r-> router_p_p
+        router_p_p <-u-> router_p_r
+    }
+    System(vpc路由网关, 网关) #red
+    router_p_r<-u->vpc路由网关
+    Boundary(vpc_f, 存储服务网络, vni-400) {
+        Container(router_p_r_2, 100.72.0.60, 网关接口) #red
+        Container(100.72.0.5, 100.72.0.5, 文件存储)
+        vpc路由网关 <-d-> router_p_r_2
+        router_p_r_2 <--> 100.72.0.5
+    }
+}
+Boundary(块存储网络, 块存储网络, 10.2.0.0/16) {
+    System(10.2.0.9, 10.2.0.9, 文件存储接口) #green
+}
+System(交换机, 交换机, vxlan ip gateway) #green
+100.72.0.5 <-d-> 交换机
+交换机 <-r-> 10.2.0.9
+
+@enduml
+```
 
 
 
