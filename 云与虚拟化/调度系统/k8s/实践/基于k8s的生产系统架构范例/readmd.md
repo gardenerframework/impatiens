@@ -111,6 +111,7 @@ Boundary(生产网络, 生产网络) {
 * k8s worker进行failure-domain标记，至少分离为所在机柜级别的故障域
 * elk系统需要部署为集群模式
 * prometheus需要alert-manager配置告警规则和告警渠道，若需要钉钉告警等可能要自研
+* grafana是prometheus的可视化展示系统，可以和prometheus合并部署(同样适用于alert manager)
 
 进行容器虚拟化 + k8s调度的好处:
 
@@ -124,3 +125,45 @@ Boundary(生产网络, 生产网络) {
 缺陷:
 
 没有云管平台，第一个版本需要使用kubectl命令行操作，需要研发云管平台或先使用rancher等开源dashboard过度
+
+# 重要数据的存储与备份
+
+在生产环境的部署模型中，git、jenkins、etcd、docker repo、prometheus、elk都需要硬盘存储以下数据
+
+* git: 历史配置文件
+* jenkins: 流水线脚本
+* etcd: k8s集群核心元数据
+* docker repo: 生产镜像
+* prometheus: 监控点位时序记录
+* elk: 历史日志
+
+为了保证这些数据存储的稳定性，理应对接远程存储服务器
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+Boundary(生产网络, 生产网络) {
+    System(git, git)
+    System(jenkins, jenkins)
+    System(dockerRepo, docker repo)
+    System(elk, elk, 日志系统) #orange
+    System(prometheus, prometheus, 观测系统) #purple
+    System(块存储设备, 块存储设备) #red
+    System(对象存储, 对象存储) 
+    
+    git -d-> 块存储设备
+    jenkins -d-> 块存储设备
+    dockerRepo -d-> 块存储设备
+    elk -d[dashed]-> 块存储设备
+    elk --> 对象存储: 执行快照
+    prometheus -d-> 块存储设备
+}
+@enduml
+```
+
+其中elk由于是分布式存储，因此可以选择依靠自己本机的硬盘完成日志存储使命。
+此外ELK应当对接对象存储，通过ES的备份api向对象存储建立备份存储，并推送备份。
+其余硬盘数据取决于块存储的备份措施以及各自推荐的备份方法。
+在生产设施网中，原则上对象存储、文件存储都应当具备。
+
+**警告**: 不推荐k8s的pod通过StorageClass等进行磁盘挂载持久化存储数据，pod持久化存储的文件应当放到文件服务器上或对象存储上，持久化的关系数据应当写入数据库，pod更多承担的是应用的计算任务。
