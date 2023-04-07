@@ -142,10 +142,38 @@ pod运行起来后会被要求彼此通信，此时注意，k8s不推荐之间�
 
 简单来说，Service代表pod要对外暴露的4层服务，它的一个样例yaml格式如下
 
-
 ```yaml
-
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app.kubernetes.io/name: MyApp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
 ```
 
+它通过selector选取pod，并对外暴露80端口(对应pod的9376)，因此可以简单理解一下service是一个4层转发器，它从k8s拿一个ip并做好端口映射，把一个端口映射给后台一组pod的一个端口
 
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
 
+Container(pod0, pod, 请求方)
+System(service, service, 9376)
+Container(pod1, pod, 9376)
+Container(pod2, pod, 9376)
+Container(pod3, pod, 9376)
+
+pod0 -d-> service: service-ip:80
+service -d-> pod1: pod-ip:9376
+service -d-> pod2: pod-ip:9376
+service -d-> pod3: pod-ip:9376
+
+@enduml
+```
+
+在之前k8s的kube-proxy通过iptables进行这样的端口转发，现在已经改为主要使用ipvs(效率更高)
