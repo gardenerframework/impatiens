@@ -128,7 +128,7 @@ spec:
 
 初始化容器一直在等数据库和一个依赖服务可用，可用了才把应用容器跑起来
 
-# 基于pod的控制器
+# pod控制器
 
 pod很少被单独建立，而是通过Deployment、StatefulSet、DaemonSet、Job等资源声明创建，创建后被这些资源控制器管理。
 这些资源控制器会检测pod的运行状态，保证pod按照声明的预期状态工作，比如副本数，需要运行成功几次等。
@@ -156,7 +156,8 @@ spec:
       targetPort: 9376
 ```
 
-它通过selector选取pod，并对外暴露80端口(对应pod的9376)，因此可以简单理解一下service是一个4层转发器，它从k8s拿一个ip并做好端口映射，把一个端口映射给后台一组pod的一个端口
+它通过selector选取pod，并对外暴露80端口(对应pod的9376)，因此可以简单理解一下service是一个4层转发器，它从k8s拿一个ip并做好端口映射，把一个端口映射给后台一组pod的一个端口。
+除此之外，service还能实现pod端口通过工作节点对外暴露以及和外部负载均衡互动等能力。在此，主要想要表达的是pod和pod之间的访问不要使用ip，而要使用service。
 
 ```plantuml
 @startuml
@@ -177,3 +178,45 @@ service -d-> pod3: pod-ip:9376
 ```
 
 在之前k8s的kube-proxy通过iptables进行这样的端口转发，现在已经改为主要使用ipvs(效率更高)
+
+# Ingress
+
+k8s网络是一个overlay网络
+
+![k8s-overlay.png](k8s-overlay.png)
+
+上图表达了pod如何经过vxlan层层转发进行通信的。因此可知，外界直接想通过3层访问pod的ip，除非经过一系列复杂的网络规则设置，否则是不可能的。
+那么为了使得部署在外部的应用或外部用户能够和k8s内部的应用进行调用(主要是http调用)，则需要创建Ingress这种资源。
+
+![ingress.png](ingress.png)
+
+如图所示，ingress将节点收到的访问请求通过网络规则转入集群内，再向目标service转发，最终由service转给目标pod
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minimal-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx-example
+  rules:
+    - http:
+        paths:
+          - path: /testpath
+            pathType: Prefix
+            backend:
+              service:
+                name: test
+                port:
+                  number: 80
+```
+
+上面的规则定义了从ingress访问的http流量中"/testpath"路径转到"test"这个服务的80端口
+
+# 总结
+
+k8s是一个容器云集群，分为控制节点和工作节点；k8s内调度的实体主要是pod，1个pod可以有多个容器，这些容器共享存储卷和网络；
+使用诸如Deployment等资源来生成pod，直接生成pod的场景不多；pod和pod之间访问不要通过ip，而是通过service；集群外想要调集群内的http接口请用ingress
+
