@@ -99,6 +99,31 @@ Docker Root Dir: /var/lib/docker
 
 将路径修改为docker镜像和日志存储专用硬盘的位置
 
+## 关闭防火墙
+
+firewalld可能会对iptables的一些规则进行干扰造成网络通信问题，通过`systemctl disable firewalld`将服务关停
+
+## 确认常见网络命令可用
+
+检查
+
+* tcpdump
+* ping
+* curl
+* arp
+* telnet
+* traceroute
+* nslookup
+* iptables
+
+等常用网络命令的组件在当前系统可用，没有则最好安装一下
+
+## 配置ssh公钥互信
+
+* `ssh-keygen`: 生成访问密钥
+* `cat  ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`: 自己和自己信任一下
+* `chmod 600 ~/.ssh/authorized_keys`
+
 # 宿主主机磁盘规划
 
 在[[基于k8s的生产系统架构范例](..%2F%E5%9F%BA%E4%BA%8Ek8s%E7%9A%84%E7%94%9F%E4%BA%A7%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%8C%83%E4%BE%8B)]
