@@ -55,6 +55,19 @@ NTP synchronized: yes
       DST active: n/a
 ```
 
+## 关闭交换分区
+
+* `swapoff -a`: 暂时先关闭
+* `vi /etc/fstab`: 打开文件挂载并在"/dev/mapper/centos-swap"前加上"#"
+* `reboot`: 重启后`free -h`看效果，如果成功则
+
+```text
+[root@localhost ~]# free -h
+              total        used        free      shared  buff/cache   available
+Mem:           1.9G        166M        1.6G        8.5M        217M        1.6G
+Swap:            0B          0B          0B
+```
+
 ## 安装docker
 
 * `yum install -y yum-utils`: 安装yum工具包
@@ -115,6 +128,7 @@ firewalld可能会对iptables的一些规则进行干扰造成网络通信问题
 * traceroute
 * nslookup
 * iptables
+* brctl
 
 等常用网络命令的组件在当前系统可用，没有则最好安装一下
 
@@ -123,6 +137,48 @@ firewalld可能会对iptables的一些规则进行干扰造成网络通信问题
 * `ssh-keygen`: 生成访问密钥
 * `cat  ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`: 自己和自己信任一下
 * `chmod 600 ~/.ssh/authorized_keys`
+
+## 开启ip转发和网桥直接转发使用iptables规则功能
+
+* 加载overlay和br_netfilter模块
+
+```shell
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+```
+
+* 开启iptables转发
+
+```shell
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+```
+
+bridge-nf-call-iptables是个非常重要的参数，它主要解决两个相同宿主机上的pod通过service转发流量后，回包不应用iptables规则的问题。
+经过参考[[https://blog.csdn.net/qq_43684922/article/details/127333368](https://blog.csdn.net/qq_43684922/article/details/127333368)]
+给出的图
+
+![流量转发问题.png](k8s-流量转发问题.png)
+
+和[[nat网络地址转换介绍](..%2F..%2F..%2F..%2F%E7%BD%91%E7%BB%9C%2F%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86%2Fnat%E7%BD%91%E7%BB%9C%E5%9C%B0%E5%9D%80%E8%BD%AC%E6%8D%A2%E4%BB%8B%E7%BB%8D)]
+
+进行讲解:
+pox-x通过service访问pod-y，在访问时，pod-x的网络流量到达service的ip，由service的ip经过dnat转换为pod-y的ip；同时将pod-x的ip作为源ip转发了包；
+回包时，pod-y回给pod-x的包是pod-x的源ip，而此时pod-x和pod-y之间网桥在内部直接转发了包
+(通常同一个主机上的pod在同一个子网以免包转来转去)而没有使用iptables，
+这造成pod-x看到的回包的源ip是pod-y而不是service的ip，而这个ip没有和自己三次握手，于是连接失败。
+
+bridge-nf-call-iptables = 1将解决这个问题，它的意思是，网桥直接做二次发包的时候也要经过iptables，这样回包经过iptables之后会发现这个访问是经过dnat来的，
+从而要将源ip改回service的ip。
+
+## 安装kubectl
+
+kubectl是k8s集群管理工具客户端，理论上只需要
 
 # 宿主主机磁盘规划
 
@@ -239,3 +295,5 @@ _提示_: 在搭建测试环境时
 * 配置管理，容器流量、存储网的snat规则(用于主机安装软件使用)
 * `service iptables save`保存规则
 * 如果snat启用后发现ping域名和ip都不同，看下iptables的FOWARD链里的filter表的表项是不是有问题
+
+# 开始安装
