@@ -13,3 +13,12 @@ echo "starting docker service"
 echo "------------------------------------------------------------"
 systemctl enable docker
 systemctl start docker
+echo "------------------------------------------------------------"
+echo "check docker info and cgroup driver, vim /etc/docker/daemon.json if cgroup driver is not systemd by add this"
+echo "{"
+echo "   \"exec-opts\": [\"native.cgroupdriver=systemd\"]"
+echo  "}"
+echo "------------------------------------------------------------"
+docker info
+echo "------------------------------------------------------------"
+

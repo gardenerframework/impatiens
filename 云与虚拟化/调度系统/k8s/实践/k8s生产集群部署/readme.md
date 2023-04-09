@@ -5,7 +5,7 @@
 选用centos7.9版本，将内核升级为最新:
 
 * `yum -y update`: 执行yum存储库更新
-* `rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org`: 导入内核库pgp公钥
+* `rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org`: 导入内核库gpg公钥
 * `yum install https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm` 把repo激活
 * `yum list available --disablerepo='*' --enablerepo=elrepo-kernel` 看一下那些内核版本可用，lt代表长期支持的，不要装"ml"
   版本的，那些都是测试版本
@@ -112,6 +112,30 @@ Docker Root Dir: /var/lib/docker
 
 将路径修改为docker镜像和日志存储专用硬盘的位置
 
+## 切换cgroup驱动为systemd
+
+* `systemctl --version`: 查看systemd版本
+* `docker info`: 从docker info看下当前的是不是还是"cgroupfs"
+
+```text
+ Logging Driver: json-file
+ Cgroup Driver: cgroupfs
+ Cgroup Version: 1
+```
+
+* `vim /etc/docker/daemon.json`: 编辑docker的手续进程选项
+
+```json
+{
+  "exec-opts": [
+    "native.cgroupdriver=systemd"
+  ]
+}
+```
+
+cgroup是linux用来跟进程分组并管理资源用的组件，它有2套实现，systemd和cgroupfs。因为systemd现在大多数系统已经自带了，所以就不推荐使用cgroupfs了。
+在此需要注意，docker切换为systemd后，k8s安装的时候也要使用systemd作为cgroup的控制器。否则k8s管理资源和docker实际使用就不是一套，容易出问题。
+
 ## 关闭防火墙
 
 firewalld可能会对iptables的一些规则进行干扰造成网络通信问题，通过`systemctl disable firewalld`将服务关停
@@ -175,6 +199,13 @@ pox-x通过service访问pod-y，在访问时，pod-x的网络流量到达service
 
 bridge-nf-call-iptables = 1将解决这个问题，它的意思是，网桥直接做二次发包的时候也要经过iptables，这样回包经过iptables之后会发现这个访问是经过dnat来的，
 从而要将源ip改回service的ip。
+
+## 安装cri-dockerd插件
+
+从很早以前，k8s就不再使用dockershim作为cri，改为使用cri-dockerd，因此需要安装cri-dockerd
+
+* `wget https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.1/cri-dockerd-0.3.1-3.el7.x86_64.rpm`: 引入repo的gpg
+* `yum install cri-dockerd-0.3.1-3.el7.x86_64.rpm -y`: 安装组件
 
 ## 安装kubectl
 
