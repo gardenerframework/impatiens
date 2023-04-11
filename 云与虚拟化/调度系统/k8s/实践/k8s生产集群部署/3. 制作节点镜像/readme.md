@@ -1,45 +1,6 @@
-# 宗旨
-
-本文在于指导如何建设一个用于**中小**规模生产的k8s集群。
-
-# 前提条件
-
-本文假设:
-
-* 生产所需的主机(无论是物理机还是虚拟机)都能访问互联网。
-  如果不具有该条件，则需要提前将所需的rpm包，镜像等导入到生产主机能够访问到的设备中
-* 生产所需的主机使用基于**x86**的cpu架构，允许被重新格式化系统
-
-
-
-# 宿主主机规划
-
-在[[基于k8s的生产系统架构范例](..%2F%E5%9F%BA%E4%BA%8Ek8s%E7%9A%84%E7%94%9F%E4%BA%A7%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%8C%83%E4%BE%8B)]
-文档中，给出了生产环境部署时节点类型的经典模型。本文在就针对不同的节点类型规划底层的磁盘
-
-## k8s集群节点
-
-k8s集群节点是指k8s master & worker，不包含etcd
-
-### 工作节点cpu:mem比
-
-**建议**k8s worker主机的cpu核心数与内存的比例维持在1:2/1:4的经典比例，除非有特别的需要，否则不要使用其它的比例模型
-
-## k8s node、git、jenkins
-
-以上类型的节点不需要高效的数据读写能力
-
-* 2块ssd操作系统盘用于快速启动并通过raid-1解决单盘故障操作系统无法启动的问题
-* 2块hdd用于docker的镜像存储以及日志存储，并承担数据盘的作用(若有块存存储设施，应当优先对接块存储)
-
-## etcd 、prometheus(plus grafana & alert manager)、elk, docker repo
-
-以上类型的节点需要频繁读写数据
-
-* 2块ssd操作系统盘用于快速启动并通过raid-1解决单盘故障操作系统无法启动的问题
-* 2块ssd用于数据的读写，并通过raid-1保证数据的备份(若有块存储设施，应当优先对接块存储)
-
 # 准备宿主机镜像
+
+## 生成和配置ssh互信
 
 ## 升级操作系统内核
 
@@ -109,6 +70,16 @@ Mem:           1.9G        166M        1.6G        8.5M        217M        1.6G
 Swap:            0B          0B          0B
 ```
 
+## 映射docker的镜像存储位置
+
+默认情况下docker安装后的路径是:
+
+```text
+Docker Root Dir: /var/lib/docker
+```
+
+将路径修改为docker镜像和日志存储专用硬盘的位置。如果不确定自己装的docker一定是在这个目录，则可以先装完了再把目录拷贝过去
+
 ## 安装docker
 
 * `yum install -y yum-utils`: 安装yum工具包
@@ -143,17 +114,7 @@ Docker version 23.0.3, build 3e7cbfd
 
 需要注意的是，docker可能要上网拉镜像
 
-## 映射docker的镜像存储位置
-
-在安装完毕后，通过`docker info`查看docker的系统路径，找到
-
-```text
-Docker Root Dir: /var/lib/docker
-```
-
-将路径修改为docker镜像和日志存储专用硬盘的位置
-
-## 切换cgroup驱动为systemd
+## 切换cgroup驱动为systemd并设置一些镜像地址
 
 * `systemctl --version`: 查看systemd版本
 * `docker info`: 从docker info看下当前的是不是还是"cgroupfs"
@@ -168,6 +129,12 @@ Docker Root Dir: /var/lib/docker
 
 ```json
 {
+  "registry-mirrors": [
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://hub-mirror.c.163.com",
+    "https://reg-mirror.qiniu.com",
+    "https://registry.docker-cn.com"
+  ],
   "exec-opts": [
     "native.cgroupdriver=systemd"
   ]
@@ -247,9 +214,49 @@ bridge-nf-call-iptables = 1将解决这个问题，它的意思是，网桥直�
 
 * `wget https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.1/cri-dockerd-0.3.1-3.el7.x86_64.rpm`: 引入repo的gpg
 * `yum install cri-dockerd-0.3.1-3.el7.x86_64.rpm -y`: 安装组件
+* `systemctl enable cri-docker`: 启用服务
+* `service cri-docker start`: 启动服务
+* `ll /run/cri-dockerd.sock`: 查看socket是否已经建立
 
-## 安装kubectl
+```text
+[root@localhost ~]# ll /run/cri-dockerd.sock
+srw-rw----. 1 root docker 0 Apr 11 23:44 /run/cri-dockerd.sock
+```
 
-kubectl是k8s集群管理工具客户端，理论上只需要
+## 安装kubeadm & kubelet
 
-# 开始安装
+kubeadm是k8s集群的初始化工具，kubelet则是节点agent，每个节点都要装
+
+* 导入google repo(使用阿里进行替换)
+
+```shell
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+EOF
+```
+
+* 关闭selinux
+
+```shell
+setenforce 0
+# SELINUX=permissive
+vim /etc/selinux/config
+```
+
+* 下载并安装(实验装的是1.26)
+
+```shell
+# 先看自己装的哪个版本
+yum list kubelet kubeadm
+# 看好了再装
+yum install -y kubelet kubeadm --disableexcludes=kubernetes
+# 服务启动后也会不停重启，因为还没有集群
+systemctl enable --now kubelet
+
+```
