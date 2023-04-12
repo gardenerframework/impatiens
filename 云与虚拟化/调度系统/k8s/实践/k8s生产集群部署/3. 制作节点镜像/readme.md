@@ -1,8 +1,4 @@
-# 准备宿主机镜像
-
-## 生成和配置ssh互信
-
-## 升级操作系统内核
+# 升级操作系统内核
 
 选用centos7.9版本，将内核升级为最新:
 
@@ -21,7 +17,7 @@
 * `vim /etc/default/grub` 修改grub文件: 修改GRUB_DEFAULT=0，0是开
 * `grub2-mkconfig -o /boot/grub2/grub.cfg`令其生效
 
-## 修改时区和语言
+# 修改时区和语言
 
 * `timedatectl`: 查看时区，比如下面的就是错的，需要改
 
@@ -57,7 +53,7 @@ NTP synchronized: yes
       DST active: n/a
 ```
 
-## 关闭交换分区
+# 关闭交换分区
 
 * `swapoff -a`: 暂时先关闭
 * `vi /etc/fstab`: 打开文件挂载并在"/dev/mapper/centos-swap"前加上"#"
@@ -70,7 +66,7 @@ Mem:           1.9G        166M        1.6G        8.5M        217M        1.6G
 Swap:            0B          0B          0B
 ```
 
-## 映射docker的镜像存储位置
+# 映射docker的镜像存储位置
 
 默认情况下docker安装后的路径是:
 
@@ -114,7 +110,7 @@ Docker version 23.0.3, build 3e7cbfd
 
 需要注意的是，docker可能要上网拉镜像
 
-## 切换cgroup驱动为systemd并设置一些镜像地址
+# 切换cgroup驱动为systemd & 设置常见生产选项
 
 * `systemctl --version`: 查看systemd版本
 * `docker info`: 从docker info看下当前的是不是还是"cgroupfs"
@@ -129,6 +125,10 @@ Docker version 23.0.3, build 3e7cbfd
 
 ```json
 {
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
   "registry-mirrors": [
     "https://docker.mirrors.ustc.edu.cn",
     "https://hub-mirror.c.163.com",
@@ -144,11 +144,11 @@ Docker version 23.0.3, build 3e7cbfd
 cgroup是linux用来跟进程分组并管理资源用的组件，它有2套实现，systemd和cgroupfs。因为systemd现在大多数系统已经自带了，所以就不推荐使用cgroupfs了。
 在此需要注意，docker切换为systemd后，k8s安装的时候也要使用systemd作为cgroup的控制器。否则k8s管理资源和docker实际使用就不是一套，容易出问题。
 
-## 关闭防火墙
+# 关闭防火墙
 
 firewalld可能会对iptables的一些规则进行干扰造成网络通信问题，通过`systemctl disable firewalld`将服务关停
 
-## 确认常见网络命令可用
+# 确认常见网络命令可用
 
 检查
 
@@ -164,7 +164,7 @@ firewalld可能会对iptables的一些规则进行干扰造成网络通信问题
 
 等常用网络命令的组件在当前系统可用，没有则最好安装一下
 
-## 配置ssh公钥互信
+# 配置ssh公钥互信
 
 * `ssh-keygen`: 生成访问密钥
 * `cat  ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`: 自己和自己信任一下
@@ -179,6 +179,12 @@ cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
 EOF
+modprobe overlay
+modprobe br_netfilter
+
+#检查结果
+lsmod | grep br_netfilter
+lsmod | grep overlay
 ```
 
 * 开启iptables转发
@@ -189,6 +195,9 @@ net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
 EOF
+sysctl --system
+# 检查结果
+sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
 ```
 
 bridge-nf-call-iptables是个非常重要的参数，它主要解决两个相同宿主机上的pod通过service转发流量后，回包不应用iptables规则的问题。
@@ -208,7 +217,7 @@ pox-x通过service访问pod-y，在访问时，pod-x的网络流量到达service
 bridge-nf-call-iptables = 1将解决这个问题，它的意思是，网桥直接做二次发包的时候也要经过iptables，这样回包经过iptables之后会发现这个访问是经过dnat来的，
 从而要将源ip改回service的ip。
 
-## 安装cri-dockerd插件
+# 安装cri-dockerd插件
 
 从很早以前，k8s就不再使用dockershim作为cri，改为使用cri-dockerd，因此需要安装cri-dockerd
 
@@ -223,7 +232,7 @@ bridge-nf-call-iptables = 1将解决这个问题，它的意思是，网桥直�
 srw-rw----. 1 root docker 0 Apr 11 23:44 /run/cri-dockerd.sock
 ```
 
-## 安装kubeadm & kubelet
+# 安装kubeadm & kubelet
 
 kubeadm是k8s集群的初始化工具，kubelet则是节点agent，每个节点都要装
 
@@ -256,7 +265,14 @@ vim /etc/selinux/config
 yum list kubelet kubeadm
 # 看好了再装
 yum install -y kubelet kubeadm --disableexcludes=kubernetes
+# 可以看下版本
+kubeadm version
+
+kubelet --version
 # 服务启动后也会不停重启，因为还没有集群
 systemctl enable --now kubelet
 
 ```
+
+有的时候装一半正好赶上发布新版本，所以就[https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/Packages/](https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/Packages/)
+找找。1,2个小本之间有差距没什么问题。本身k8s迭代也很快。
