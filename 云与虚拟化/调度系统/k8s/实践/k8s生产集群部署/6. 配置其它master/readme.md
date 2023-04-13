@@ -1,7 +1,7 @@
 # 变更名称
 
 ```shell
-hostnamectl set-hostname k8s-worker-2
+hostnamectl set-hostname k8s-master-2
 reboot
 ```
 
@@ -20,7 +20,7 @@ docker tag registry.aliyuncs.com/google_containers/pause:3.6 registry.k8s.io/pau
 ```shell
 kubeadm join 100.64.0.53:6443 --token abcdef.0123456789abcdef \
     --discovery-token-ca-cert-hash sha256:aeca62fe59a5bf550a6b9dd46ce29cea61787f0305d9d7dd6f0a0ae5f008de53 \
-    --control-plane --certificate-key ee0b1aea0dfe382acd48ad72e73b807ec2f0182b1acee189cba6cd7b0d94665e \
+    --control-plane --certificate-key b04a2ee717c1b174cb60ee79a45ea848ad09e99a6adc4f3d8de50db5203b6ba0 \
     --cri-socket=unix:///var/run/cri-dockerd.sock \
     --v=5 \
     --apiserver-advertise-address=100.64.0.3

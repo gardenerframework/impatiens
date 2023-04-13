@@ -252,6 +252,16 @@ mkdir ~/.kube
 echo IPADDR=100.64.0.3
 echo NETMASK=255.255.248.0
 echo GATEWAY=100.64.0.1
+
+
+echo IPADDR=100.64.32.3
+echo NETMASK=255.255.248.0
+echo GATEWAY=100.64.32.1
+echo DNS1=192.168.1.1
+
+echo IPADDR=100.64.64.3
+echo NETMASK=255.255.248.0
+echo GATEWAY=100.64.64.1
 ```
 
 # 在worker上创建busybox查看流量
