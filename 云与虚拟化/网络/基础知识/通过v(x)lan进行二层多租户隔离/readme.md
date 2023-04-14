@@ -123,7 +123,7 @@ vtep需要进行彼此发现以及交换由自己承载的网卡的vni编号和m
 
 ## EVPN控制面学习
 
-上面的做法让vtep在网络中造成一堆组播流量(泛洪流量)，现在已经没有什么成熟厂商再继续使用了。
+上面的做法让vtep在网络中造成一堆组播流量(泛洪流量)，现在已经没有什么成熟厂商再继续使用了，
 取而代之的是使用BGP EVPN的方式进行控制面学习。
 
 下文摘抄自华为的vxlan介绍手册[[https://support.huawei.com/enterprise/zh/doc/EDOC1100218004?section=j009](https://support.huawei.com/enterprise/zh/doc/EDOC1100218004?section=j009)]
