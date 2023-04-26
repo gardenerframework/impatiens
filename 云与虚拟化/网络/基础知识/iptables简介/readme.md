@@ -119,3 +119,69 @@ ip rule add from all fwmark 2 table 10
 ```
 
 上面的两个指令添加2个默认路由，并分别新建2个路由表，然后指定匹配了iptables标签1的走10.0.0.1，匹配了2的走10.1.0.1
+
+# NAT表
+
+顾名思义，做nat地址转换用的表，通常用于记录snat和dnat规则。
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(子网1, 子网, 192.168.0.0/24) {
+    System(主机1, 192.168.0.108) #red
+}
+Boundary(子网2, 子网, 192.168.1.0/24) {
+    System(主机2, 192.168.1.100) #orange
+   
+}
+System(网关, 网关)
+Boundary(子网3, 子网, 10.0.0.0/24) {
+    System(10.0.0.1, 10.0.0.1, 联通线路)
+}
+Boundary(子网4, 子网, 10.1.0.0/24) {
+    System(10.1.0.1, 10.1.0.1, 电信线路)
+}
+
+主机1 <-u-> 网关
+主机2 <-u-> 网关
+
+网关 <-u-> 10.0.0.1
+网关 <-u-> 10.1.0.1
+
+@enduml
+```
+
+同样使用这张图，假设10.0.0.1和10.1.0.1都需要对网络访问进行snat，这样使得两个192子网的主机能够上网
+
+```shell
+iptables -t nat -A POSTROUTING -j SNAT -s 192.168.0.0/16 --to-source x.x.x.x
+```
+
+在指令中，将整个192.168.0.0/16子网的规则进行了定义。
+
+# FILTER表
+
+做包过滤规则的表，常见的防火墙acl规则都是现在这个表里。例如要丢弃所有来自192.168.0.0/16的包
+
+```shell
+iptables -t filter -A INPUT 192.168.0.0/16 -j DROP
+iptables -t filter -A FOWARD 192.168.0.0/16 -j DROP
+
+```
+
+这样无论是192.168.0.0/16子网的主机给当前主机发包，还是当前主机作为网关转包，都会将数据丢弃
+
+# 表优先级
+
+raw—>mangle—>nat—>filter
+
+# 总结
+
+iptables定义了一系列包接收和转发的规则，它具有5个链和4张表；
+raw表用于决定哪些包不会使用nat规则，mangle表可以用来给包打标从而使得所有基于iproute2组件的工具能够利用这些标记，
+nat表记录地址转换规则，filter表记录包规律规则；优先级上，raw—>mangle—>nat—>filter 
+
+# 下一步阅读
+
+[icmp & igmp简介](..%2Ficmp%20%26%20igmp%E7%AE%80%E4%BB%8B)
