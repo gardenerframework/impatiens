@@ -56,11 +56,114 @@ Boundary(开发设施, 开发设施) {
 
 禅道目前可以配置git仓库的webhook，监听commit message中提及到的禅道需求、缺陷编号，实现git代码开发与任务的自动关联，下面引自禅道官方文档
 
-
 ```text
 开发者在提交代码到git的时候，需要在备注里面注明此次修改相关的需求，或者任务，或者bug的id。比如下面的格式：
 bug#123,234, 1234，也可以是bug:123,234 1234，id列表之间，用逗号和空格都可以。
 story#123 task#123
 bug, story, task是必须标注的
 ```
+
+# 制品管理系统
+
+团队开发过程中产生的中间组件(比如jar包)或者最终成品需要有一套系统来管理而不是直接存储在员工的个人计算机上。在以java开发、以容器运行的条件下，
+主要是用[jfrog](https://jfrog.com/)和[docker harbor](https://goharbor.io/)。
+jfrog主要管理非发布制品(snapshot版本)和发布制品(非snapshot版本)。
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(开发设施, 开发设施) {
+    System(AD, Active Directory, 域控服务器)
+    System(zentoo, 禅道, 项目管理)
+    System(git, gitlab, 代码管理)
+    System(jfrog, jfrog, jar包管理)
+    System(harbor, docker harbor, 容器镜像管理)
+    
+    zentoo -d-> AD: 员工账户认证
+    git -d-> AD
+    jfrog -d-> AD
+    harbor -d-> AD
+    
+    git -r-> zentoo: 代码提交后自动关联任务
+}
+
+@enduml
+```
+
+# 流水线
+
+流水线用于将团队开发的代码自动化地进行单元测试后发布到制品管理系统。目前流行的开源流水线是[jenkins](https://www.jenkins.io/)。
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(开发设施, 开发设施) {
+    System(AD, Active Directory, 域控服务器)
+    System(zentoo, 禅道, 项目管理)
+    System(git, gitlab, 代码管理)
+    System(jfrog, jfrog, jar包管理)
+    System(harbor, docker harbor, 容器镜像管理)
+    System(jenkins, jenkins, 流水线)
+    System(utest, 单元测试环境, 所需中间件等)
+    
+    zentoo -d-> AD: 员工账户认证
+    git -d-> AD
+    jfrog -d-> AD
+    harbor -d-> AD
+    jenkins -d-> AD
+    
+    git -r-> zentoo: 代码提交后自动关联任务
+    
+    jenkins -d-> git: 代码拉取
+    jenkins -d-> jfrog: 制品推送 
+    jenkins -d-> utest: 单元测试
+    jenkins -d-> harbor: 制品推送
+    
+}
+
+@enduml
+```
+
+# 建设要点
+
+## 云化调度和使用多副本的存储
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(rack1, 机柜/机位) {
+    System(bm1, 服务器, 裸金属)
+}
+
+Boundary(rack2, 机柜/机位) {
+    System(bm2, 服务器, 裸金属)
+}
+
+Boundary(rack3, 机柜/机位) {
+    System(bm3, 服务器, 裸金属)
+}
+
+System(域控, 域控服务器, 虚拟机)
+
+Boundary(ceph, 分布式存储) {
+    System(分布式存储网关, 分布式存储网关)
+    bm1 --> 分布式存储网关
+    bm2 --> 分布式存储网关
+    bm3 --> 分布式存储网关
+    域控 --> 分布式存储网关
+}
+
+@enduml
+```
+
+* 推荐使用K8S+容器作为研发基础设施的运行环境，上文所述的系统大部分可以在docker的中央仓库找到直接可用的容器
+* K8S可以保证容器的副本数和可用性，当应用出现问题是将应用负载自动迁移
+* <font color=red>域控服务器无法容器化，因此依然需要使用基于虚拟机的解决方案</font>
+
+
+## 重要数据的定期备份
+
 
