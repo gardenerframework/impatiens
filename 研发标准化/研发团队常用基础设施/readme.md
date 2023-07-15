@@ -162,8 +162,71 @@ Boundary(ceph, 分布式存储) {
 * 推荐使用K8S+容器作为研发基础设施的运行环境，上文所述的系统大部分可以在docker的中央仓库找到直接可用的容器
 * K8S可以保证容器的副本数和可用性，当应用出现问题是将应用负载自动迁移
 * <font color=red>域控服务器无法容器化，因此依然需要使用基于虚拟机的解决方案</font>
+* 在数据存储上，需要将K8S的pod以及域控服务器的底层数据磁盘对接到分布式的网络存储设施，这类设施通过多副本等机制保证
 
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(rack1, 机柜/机位) {
+    Boundary(bm1, 服务器, 裸金属) {
+        Container(pod1, pod, csi)
+    }
+}
+
+Boundary(rack2, 机柜/机位) {
+    Boundary(bm2, 服务器, 裸金属) {
+        Container(pod2, pod, csi)
+    }
+}
+
+Boundary(rack3, 机柜/机位) {
+    Boundary(bm3, 服务器, 裸金属) {
+        Container(pod3, pod, csi)
+    }
+}
+
+System(域控, 域控服务器, 虚拟机)
+
+Boundary(ceph, 分布式存储) {
+    System(分布式存储网关, 分布式存储网关)
+    pod1 --> 分布式存储网关
+    pod2 --> 分布式存储网关
+    pod3 --> 分布式存储网关
+    域控 --> 分布式存储网关
+}
+
+@enduml
+```
+
+* 此外，物理机部署了K8S系统后，etcd的数据可以直接存储在分布式存储中进行天然的多副本备份
 
 ## 重要数据的定期备份
 
+常见的存储系统现在都支持数据快照的能力，通过定期的数据快照可以创建数据的回滚点和备份点。因此，对接到分布式存储的pod的数据，比如git的代码和元数据等可以通过这个机制实现定期的自动备份
 
+除此之外，依然需要针对git代码执行定期全量备份，其方法是
+
+* 在git的低峰时段对git目录创建压缩包
+* 将压缩包拷贝到分布式存储的另一块独立存储位置
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(git, git) {
+    System(定期备份程序, 定期备份程序)
+}
+
+Boundary(ceph, 分布式存储) {
+    System(代码目录, 代码目录, 块存储)
+
+    System(备份目录, 备份目录, 块存储)
+}
+
+    
+定期备份程序 <-- 代码目录
+定期备份程序 --> 备份目录
+
+@enduml
+```
