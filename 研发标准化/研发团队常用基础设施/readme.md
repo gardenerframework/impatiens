@@ -201,6 +201,83 @@ Boundary(ceph, 分布式存储) {
 
 * 此外，物理机部署了K8S系统后，etcd的数据可以直接存储在分布式存储中进行天然的多副本备份
 
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(rack1, 机柜/机位) {
+    Boundary(bm1, 服务器, 裸金属) {
+        Container(pod1, etcd, nfs)
+    }
+}
+
+Boundary(rack2, 机柜/机位) {
+    Boundary(bm2, 服务器, 裸金属) {
+        Container(pod2, etcd, nfs)
+    }
+}
+
+Boundary(rack3, 机柜/机位) {
+    Boundary(bm3, 服务器, 裸金属) {
+        Container(pod3, etcd, nfs)
+    }
+}
+
+System(域控, 域控服务器, 虚拟机)
+
+Boundary(ceph, 分布式存储) {
+    System(分布式存储网关, 分布式存储网关)
+    pod1 --> 分布式存储网关
+    pod2 --> 分布式存储网关
+    pod3 --> 分布式存储网关
+    域控 --> 分布式存储网关
+}
+
+@enduml
+```
+
+## 二层网络隔离
+
+为了保证在开发环境内产生的流量数据不影响可能混合在一个机房内的其它系统(比如某个生产系统)，
+通常开发环境的主机会采用隔离的二层网络(如下图使用vlan-1)
+
+```plantuml
+@startuml
+!include  https://plantuml.s3.cn-north-1.jdcloud-oss.com/C4_Container.puml
+
+Boundary(rack1, 机柜/机位) {
+    Boundary(bm1, 服务器, vlan-1) {
+        Container(pod1, pod, csi)
+    }
+}
+
+Boundary(rack2, 机柜/机位) {
+    Boundary(bm2, 服务器, vlan-1) {
+        Container(pod2, pod, csi)
+    }
+}
+
+Boundary(rack3, 机柜/机位) {
+    Boundary(bm3, 服务器, vlan-1) {
+        Container(pod3, pod, csi)
+    }
+}
+
+System(域控, 域控服务器, vlan-1)
+
+Boundary(ceph, 分布式存储, vlan-1) {
+    System(分布式存储网关, 分布式存储网关)
+    pod1 --> 分布式存储网关
+    pod2 --> 分布式存储网关
+    pod3 --> 分布式存储网关
+    域控 --> 分布式存储网关
+}
+
+@enduml
+```
+
+网络隔离后，第一不易发生从开发环境的主机访问其它环境的情况，另外开发过程中产生的问题，特别是网络问题不影响其它系统
+
 ## 重要数据的定期备份
 
 常见的存储系统现在都支持数据快照的能力，通过定期的数据快照可以创建数据的回滚点和备份点。因此，对接到分布式存储的pod的数据，比如git的代码和元数据等可以通过这个机制实现定期的自动备份
