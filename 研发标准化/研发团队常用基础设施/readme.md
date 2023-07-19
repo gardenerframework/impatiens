@@ -147,6 +147,7 @@ Boundary(rack3, 机柜/机位) {
 }
 
 System(域控, 域控服务器, 虚拟机)
+System(harbor, docker仓库, 虚拟机)
 
 Boundary(ceph, 分布式存储) {
     System(分布式存储网关, 分布式存储网关)
@@ -154,6 +155,7 @@ Boundary(ceph, 分布式存储) {
     bm2 --> 分布式存储网关
     bm3 --> 分布式存储网关
     域控 --> 分布式存储网关
+    harbor --> 分布式存储网关
 }
 
 @enduml
@@ -187,6 +189,7 @@ Boundary(rack3, 机柜/机位) {
 }
 
 System(域控, 域控服务器, 虚拟机)
+System(harbor, docker仓库, 虚拟机)
 
 Boundary(ceph, 分布式存储) {
     System(分布式存储网关, 分布式存储网关)
@@ -194,6 +197,7 @@ Boundary(ceph, 分布式存储) {
     pod2 --> 分布式存储网关
     pod3 --> 分布式存储网关
     域控 --> 分布式存储网关
+    harbor --> 分布式存储网关
 }
 
 @enduml
@@ -224,6 +228,7 @@ Boundary(rack3, 机柜/机位) {
 }
 
 System(域控, 域控服务器, 虚拟机)
+System(harbor, docker仓库, 虚拟机)
 
 Boundary(ceph, 分布式存储) {
     System(分布式存储网关, 分布式存储网关)
@@ -231,6 +236,7 @@ Boundary(ceph, 分布式存储) {
     pod2 --> 分布式存储网关
     pod3 --> 分布式存储网关
     域控 --> 分布式存储网关
+    harbor --> 分布式存储网关
 }
 
 @enduml
@@ -264,6 +270,7 @@ Boundary(rack3, 机柜/机位) {
 }
 
 System(域控, 域控服务器, vlan-1)
+System(harbor, docker仓库, vlan-1)
 
 Boundary(ceph, 分布式存储, vlan-1) {
     System(分布式存储网关, 分布式存储网关)
@@ -271,6 +278,7 @@ Boundary(ceph, 分布式存储, vlan-1) {
     pod2 --> 分布式存储网关
     pod3 --> 分布式存储网关
     域控 --> 分布式存储网关
+    harbor --> 分布式存储网关
 }
 
 @enduml
