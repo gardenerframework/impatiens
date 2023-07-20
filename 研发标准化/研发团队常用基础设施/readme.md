@@ -12,6 +12,7 @@ Boundary(开发设施, 开发设施) {
     System(AD, Active Directory, 域控服务器)
 }
 
+
 @enduml
 ```
 
@@ -29,6 +30,7 @@ Boundary(开发设施, 开发设施) {
     
     zentoo -d-> AD
 }
+
 
 @enduml
 ```
