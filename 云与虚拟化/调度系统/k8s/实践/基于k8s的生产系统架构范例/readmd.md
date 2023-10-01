@@ -154,7 +154,7 @@ Boundary(生产网络, 生产网络) {
     git -d-> 块存储设备
     jenkins -d-> 块存储设备
     dockerRepo -d-> 块存储设备
-    elk -d[dashed]-> 块存储设备
+    elk -[dashed]d-> 块存储设备
     elk --> 对象存储: 执行快照
     prometheus -d-> 块存储设备
 }
