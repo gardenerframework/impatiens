@@ -100,7 +100,7 @@
   "status": 410,
   "reason": "Gone",
   "uri": "/controller/exception",
-  "error": "com.jdcloud.gardener.fragrans.api.standard.error.exception.client.GoneException",
+  "error": "io.gardenerframework.fragrans.api.standard.error.exception.client.GoneException",
   "message": "资源已被永久移除",
   "hint": null,
   "details": null
